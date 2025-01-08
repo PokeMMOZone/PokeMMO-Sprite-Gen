@@ -44,18 +44,62 @@ def add_red_outline(frame):
     # Combine the red outline with the original frame
     return Image.alpha_composite(outline_image, frame)
 
-def apply_overlays(frame, overlay_keys):
-    """Apply the specified overlays to the frame."""
-    frame_width, frame_height = frame.size
-    positions = {
-        "egg": (frame_width - overlays["egg"].size[0], 0),
-        "secret": (frame_width - overlays["secret"].size[0], 0),
-        "safari": (frame_width - overlays["safari"].size[0], overlays["secret"].size[1] if "secret" in overlay_keys else 0),
-    }
+def apply_overlays_behind(frame, overlay_keys):
+    """Place the specified overlays behind the Pokémon sprite."""
+    frame = frame.convert("RGBA")
+    width, height = frame.size
+    background = Image.new("RGBA", (width, height), (0, 0, 0, 0))
 
     for key in overlay_keys:
-        frame.paste(overlays[key], positions[key], overlays[key])
-    return frame
+        overlay = overlays[key]
+        position = {
+            "egg": (width - overlay.size[0], 0),
+            "secret": (width - overlay.size[0], 0),
+            "safari": (width - overlay.size[0], overlays["secret"].size[1] if "secret" in overlay_keys else 0),
+        }[key]
+        background.paste(overlay, position, overlay)
+
+    # Combine the background with the frame
+    combined = Image.alpha_composite(background, frame)
+    return combined
+
+def generate_black_versions(pokemon_name, shiny_gif):
+    """Generate blacked-out versions (animated GIF and first-frame PNG)."""
+    black_folder = os.path.join(root_output_folder, "Black")
+    black_png_folder = os.path.join(root_output_folder, "Black_PNG")
+    os.makedirs(black_folder, exist_ok=True)
+    os.makedirs(black_png_folder, exist_ok=True)
+
+    # Create blacked-out frames
+    frames = []
+    for frame in ImageSequence.Iterator(shiny_gif):
+        frame = frame.convert("RGBA")
+        black_frame = Image.new("RGBA", frame.size, (0, 0, 0, 0))
+        pixels = frame.load()
+        black_pixels = black_frame.load()
+
+        for x in range(frame.width):
+            for y in range(frame.height):
+                if pixels[x, y][3] > 0:  # Non-transparent pixel
+                    black_pixels[x, y] = (0, 0, 0, pixels[x, y][3])  # Black color, preserve transparency
+
+        frames.append(black_frame)
+
+    # Save animated blacked-out GIF
+    gif_output_path = os.path.join(black_folder, f"{pokemon_name}.gif")
+    frames[0].save(
+        gif_output_path,
+        save_all=True,
+        append_images=frames[1:],
+        loop=0,
+        duration=shiny_gif.info.get("duration", 100),
+        disposal=2,
+    )
+
+    # Save first frame as static PNG
+    png_output_path = os.path.join(black_png_folder, f"{pokemon_name}.png")
+    frames[0].save(png_output_path)
+    print(f"Saved blacked-out GIF and PNG for {pokemon_name} at {black_folder} and {black_png_folder}")
 
 def process_shiny_gif(pokemon_name, shiny_url):
     """Download a shiny gif, generate all variations, and save them in subfolders."""
@@ -66,6 +110,9 @@ def process_shiny_gif(pokemon_name, shiny_url):
 
     # Load the shiny GIF
     shiny_gif = Image.open(response.raw)
+
+    # Generate blacked-out versions
+    generate_black_versions(pokemon_name, shiny_gif)
 
     # Define variations and corresponding overlay keys
     variations = {
@@ -89,7 +136,7 @@ def process_shiny_gif(pokemon_name, shiny_url):
         frames = []
         for frame in ImageSequence.Iterator(shiny_gif):
             frame_with_outline = add_red_outline(frame)
-            frame_with_overlays = apply_overlays(frame_with_outline, overlay_keys) if overlay_keys else frame_with_outline
+            frame_with_overlays = apply_overlays_behind(frame_with_outline, overlay_keys) if overlay_keys else frame_with_outline
             frames.append(frame_with_overlays)
 
         # Save the modified GIF
@@ -103,7 +150,7 @@ def process_shiny_gif(pokemon_name, shiny_url):
             disposal=2,
             transparency=0,
         )
-        print(f"Saved {variation} gif for {pokemon_name} at {output_path}")
+        print(f"Saved {variation} gif for {pokemon_name} at {output_folder}")
 
 def fetch_all_pokemon():
     """Fetch all Pokémon names from PokeAPI."""
