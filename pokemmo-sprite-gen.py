@@ -21,12 +21,12 @@ for key, path in overlay_paths.items():
     else:
         print(f"Warning: Overlay '{path}' not found. Skipping '{key}' variations.")
 
-def add_red_outline(frame):
-    """Add a red outline around the Pokémon in the frame."""
+def add_yellow_outline(frame):
+    """Add a yellow outline around the Pokémon in the frame."""
     frame = frame.convert("RGBA")
     width, height = frame.size
 
-    # Create a new image to hold the red outline
+    # Create a new image to hold the yellow outline
     outline_image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(outline_image)
 
@@ -35,23 +35,14 @@ def add_red_outline(frame):
     for x in range(width):
         for y in range(height):
             if pixels[x, y][3] > 0:  # Non-transparent pixel
-                # Draw a red border around the pixel
+                # Draw a yellow border around the pixel
                 for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                     nx, ny = x + dx, y + dy
                     if 0 <= nx < width and 0 <= ny < height and pixels[nx, ny][3] == 0:
-                        draw.point((nx, ny), fill=(255, 0, 0, 255))  # Red color
+                        draw.point((nx, ny), fill=(255, 255, 0, 255))  # Yellow color
 
-    # Combine the red outline with the original frame
+    # Combine the yellow outline with the original frame
     return Image.alpha_composite(outline_image, frame)
-
-def apply_yellow_hue(frame):
-    """Apply a yellowish hue to the Pokémon in the frame."""
-    frame = frame.convert("RGBA")
-    width, height = frame.size
-
-    # Create a yellow overlay
-    yellow_overlay = Image.new("RGBA", (width, height), (255, 255, 0, 50))  # Semi-transparent yellow
-    return Image.alpha_composite(frame, yellow_overlay)
 
 def apply_overlays_behind(frame, overlay_keys):
     """Place the specified overlays behind the Pokémon sprite."""
@@ -141,12 +132,11 @@ def process_shiny_gif(pokemon_name, shiny_url):
         output_folder = os.path.join(root_output_folder, variation)
         os.makedirs(output_folder, exist_ok=True)
 
-        # Apply red outline, yellow hue, and overlays to all frames
+        # Apply yellow outline and overlays to all frames
         frames = []
         for frame in ImageSequence.Iterator(shiny_gif):
-            frame_with_outline = add_red_outline(frame)
-            frame_with_hue = apply_yellow_hue(frame_with_outline)
-            frame_with_overlays = apply_overlays_behind(frame_with_hue, overlay_keys) if overlay_keys else frame_with_hue
+            frame_with_outline = add_yellow_outline(frame)
+            frame_with_overlays = apply_overlays_behind(frame_with_outline, overlay_keys) if overlay_keys else frame_with_outline
             frames.append(frame_with_overlays)
 
         # Save the modified GIF
