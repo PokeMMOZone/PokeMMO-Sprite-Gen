@@ -65,8 +65,8 @@ def apply_overlays_behind(frame, overlay_keys):
 
 def generate_black_versions(pokemon_name, shiny_gif):
     """Generate blacked-out versions (animated GIF and first-frame PNG)."""
-    black_folder = os.path.join(root_output_folder, "Black")
-    black_png_folder = os.path.join(root_output_folder, "Black_PNG")
+    black_folder = os.path.join(root_output_folder, "black")
+    black_png_folder = os.path.join(root_output_folder, "black_PNG")
     os.makedirs(black_folder, exist_ok=True)
     os.makedirs(black_png_folder, exist_ok=True)
 
@@ -103,8 +103,8 @@ def generate_black_versions(pokemon_name, shiny_gif):
 
 def generate_greyscale_versions(pokemon_name, shiny_gif):
     """Generate greyscale versions (animated GIF and first-frame PNG)."""
-    greyscale_folder = os.path.join(root_output_folder, "Greyscale")
-    greyscale_png_folder = os.path.join(root_output_folder, "Greyscale_PNG")
+    greyscale_folder = os.path.join(root_output_folder, "greyscale")
+    greyscale_png_folder = os.path.join(root_output_folder, "greyscale_PNG")
     os.makedirs(greyscale_folder, exist_ok=True)
     os.makedirs(greyscale_png_folder, exist_ok=True)
 
