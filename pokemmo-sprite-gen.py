@@ -101,6 +101,36 @@ def generate_black_versions(pokemon_name, shiny_gif):
     frames[0].save(png_output_path)
     print(f"Saved blacked-out GIF and PNG for {pokemon_name} at {black_folder} and {black_png_folder}")
 
+def generate_greyscale_versions(pokemon_name, shiny_gif):
+    """Generate greyscale versions (animated GIF and first-frame PNG)."""
+    greyscale_folder = os.path.join(root_output_folder, "Greyscale")
+    greyscale_png_folder = os.path.join(root_output_folder, "Greyscale_PNG")
+    os.makedirs(greyscale_folder, exist_ok=True)
+    os.makedirs(greyscale_png_folder, exist_ok=True)
+
+    # Create greyscale frames
+    frames = []
+    for frame in ImageSequence.Iterator(shiny_gif):
+        frame = frame.convert("RGBA")
+        greyscale_frame = ImageEnhance.Color(frame).enhance(0)  # Convert to greyscale
+        frames.append(greyscale_frame)
+
+    # Save animated greyscale GIF
+    gif_output_path = os.path.join(greyscale_folder, f"{pokemon_name}.gif")
+    frames[0].save(
+        gif_output_path,
+        save_all=True,
+        append_images=frames[1:],
+        loop=0,
+        duration=shiny_gif.info.get("duration", 100),
+        disposal=2,
+    )
+
+    # Save first frame as static PNG
+    png_output_path = os.path.join(greyscale_png_folder, f"{pokemon_name}.png")
+    frames[0].save(png_output_path)
+    print(f"Saved greyscale GIF and PNG for {pokemon_name} at {greyscale_folder} and {greyscale_png_folder}")
+
 def process_shiny_gif(pokemon_name, shiny_url):
     """Download a shiny gif, generate all variations, and save them in subfolders."""
     response = requests.get(shiny_url, stream=True)
@@ -113,6 +143,9 @@ def process_shiny_gif(pokemon_name, shiny_url):
 
     # Generate blacked-out versions
     generate_black_versions(pokemon_name, shiny_gif)
+
+    # Generate greyscale versions
+    generate_greyscale_versions(pokemon_name, shiny_gif)
 
     # Define variations and corresponding overlay keys
     variations = {
