@@ -185,6 +185,54 @@ def process_shiny_gif(pokemon_name, shiny_url):
         )
         print(f"Saved {variation} gif for {pokemon_name} at {output_folder}")
 
+def build_shiny_url_female(base_id):
+    """Construct the animated shiny URL for a female sprite using the Pokémon ID."""
+    return f"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/shiny/female/{base_id}.gif"
+
+def build_form_shiny_url_female(filename_id):
+    """Construct the animated shiny URL for a female form."""
+    return f"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/shiny/female/{filename_id}.gif"
+
+def process_shiny_gif_female(pokemon_name, shiny_url):
+    """Same as process_shiny_gif but places results into _female folders."""
+    response = requests.get(shiny_url, stream=True)
+    if response.status_code != 200:
+        print(f"Failed to download {shiny_url} for {pokemon_name} (female)")
+        return
+    shiny_gif = Image.open(response.raw)
+    generate_black_versions(pokemon_name, shiny_gif)
+    generate_greyscale_versions(pokemon_name, shiny_gif)
+    variations = {
+        "alpha_female": [],
+        "alpha_egg_female": ["egg"],
+        "alpha_safari_female": ["safari"],
+        "alpha_secret_female": ["secret"],
+        "alpha_secret_safari_female": ["secret", "safari"],
+        "egg_female": ["egg"],
+        "safari_female": ["safari"],
+        "secret_female": ["secret"],
+        "secret_safari_female": ["secret", "safari"],
+    }
+    for variation, overlay_keys in variations.items():
+        output_folder = os.path.join(root_output_folder, variation)
+        os.makedirs(output_folder, exist_ok=True)
+        frames = []
+        for frame in ImageSequence.Iterator(shiny_gif):
+            frame_with_outline = add_yellow_outline(frame)
+            frame_with_overlays = apply_overlays_behind(frame_with_outline, overlay_keys) if overlay_keys else frame_with_outline
+            frames.append(frame_with_overlays)
+        output_path = os.path.join(output_folder, f"{pokemon_name}.gif")
+        frames[0].save(
+            output_path,
+            save_all=True,
+            append_images=frames[1:],
+            loop=0,
+            duration=shiny_gif.info.get("duration", 100),
+            disposal=2,
+            transparency=0,
+        )
+        print(f"Saved {variation} gif for {pokemon_name} (female) at {output_folder}")
+
 def fetch_all_pokemon():
     """Fetch all Pokémon names from PokeAPI."""
     url = "https://pokeapi.co/api/v2/pokemon?limit=10000"  # Fetch all Pokémon
@@ -203,6 +251,82 @@ def get_pokemon_data(pokemon_name):
         return None
     return response.json()
 
+EXCLUDED_VARIATION_PATTERNS = [
+    "-mega",
+    "-gmax",
+    "-alola",
+    "-hisui",
+    "-galar",
+    "-rock-star",
+    "-belle",
+    "-pop-star",
+    "-phd",
+    "-libre",
+    "-cosplay",
+    "-original-cap",
+    "-hoenn-cap",
+    "-sinnoh-cap",
+    "-unova-cap",
+    "-kalos-cap",
+    "-partner-cap",
+    "-starter",
+    "-world-cap",
+    "-primal",
+    "-paldea",
+    "-totem",
+    "palkia-origin",
+    "dialga-origin",
+    "basculin-white-striped",
+    "unown-a",
+    "arceus-normal",
+    "arceus-unknown",
+    "arceus-fairy",
+    "mothim-plant",
+    "pichu-spiky-eared",
+    "burmy-plant",
+    "cherrim-overcast",
+    "shellos-west",
+    "gastrodon-west",
+    "deerling-spring",
+    "sawsbuck-spring",
+]
+
+def build_form_filename_id(base_id, form_name):
+    """Infer a filename ID based on the parent ID and form name."""
+    filename_id = str(base_id)
+    if "-" in form_name:
+        letter_part = form_name.split("-", 1)[1]
+        filename_id = f"{filename_id}-{letter_part}"
+    return filename_id
+
+def build_form_shiny_url(filename_id):
+    """Construct the animated shiny URL for a form using the inferred filename ID."""
+    return f"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/generation-v/black-white/animated/shiny/{filename_id}.gif"
+
+def get_form_data(form_name):
+    """Fetch data for a specific form from PokeAPI."""
+    url = f"https://pokeapi.co/api/v2/pokemon-form/{form_name}"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        print(f"Failed to fetch form data for {form_name}: {e}")
+    return None
+
+def get_pokemon_forms(pokemon_data):
+    """Return form data by inferring the shiny URL from the parent ID and form name."""
+    forms = []
+    base_id = pokemon_data["id"]  # Parent Pokémon ID
+    for form in pokemon_data.get("forms", []):
+        form_name = form["name"]
+        if any(pattern in form_name for pattern in EXCLUDED_VARIATION_PATTERNS):
+            continue
+        filename_id = build_form_filename_id(base_id, form_name)
+        front_shiny = build_form_shiny_url(filename_id)
+        forms.append((form_name, front_shiny))
+    return forms
+
 # Fetch all Pokémon names
 pokemon_names = fetch_all_pokemon()
 
@@ -216,3 +340,13 @@ for pokemon_name in pokemon_names:
     shiny_url = data.get("sprites", {}).get("versions", {}).get("generation-v", {}).get("black-white", {}).get("animated", {}).get("front_shiny")
     if shiny_url:
         process_shiny_gif(pokemon_name, shiny_url)
+        female_url = build_shiny_url_female(data["id"])
+        process_shiny_gif_female(pokemon_name, female_url)
+
+    # Now also process forms
+    forms = get_pokemon_forms(data)
+    for form_name, form_shiny_url in forms:
+        process_shiny_gif(form_name, form_shiny_url)
+        filename_id = build_form_filename_id(data["id"], form_name)
+        form_shiny_url_female = build_form_shiny_url_female(filename_id)
+        process_shiny_gif_female(form_name, form_shiny_url_female)
